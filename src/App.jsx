@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import supabase, { hasSupabaseConfig } from './utils/supabase';
 
 const USERS = ['Igor', 'Vinicius'];
@@ -23,6 +23,23 @@ function getWeekKey(dateStr) {
   const start = new Date(d);
   start.setDate(d.getDate() - d.getDay());
   return start.getTime();
+}
+
+function getSkipIndexInWeek(dateKey, checkInsByDate, user) {
+  const d = new Date(dateKey + 'T12:00:00');
+  const start = new Date(d);
+  start.setDate(d.getDate() - d.getDay());
+  const skipDates = [];
+  for (let i = 0; i < 7; i++) {
+    const day = new Date(start);
+    day.setDate(start.getDate() + i);
+    const key = dateToKey(day);
+    const hasChecks = checkInsByDate[key] && checkInsByDate[key][user] && checkInsByDate[key][user].length > 0;
+    if (!hasChecks) skipDates.push(key);
+  }
+  skipDates.sort();
+  const idx = skipDates.indexOf(dateKey);
+  return idx;
 }
 
 function formatDate(iso) {
@@ -306,7 +323,13 @@ export default function App() {
       if (users.every((u) => (habitsByUser[u] || []).length === 0)) return 'skip';
       if (allSuccess && anySuccess) return 'success';
       if (anySuccess) return 'partial';
-      return 'fail';
+      let anyBreakSkip = false;
+      for (const u of users) {
+        if ((habitsByUser[u] || []).length === 0) continue;
+        const idx = getSkipIndexInWeek(dateKey, checkInsByDate, u);
+        if (idx >= 2) anyBreakSkip = true;
+      }
+      return anyBreakSkip ? 'fail' : 'skip';
     }
     const u = users[0];
     const habs = habitsByUser[u] || [];
@@ -317,6 +340,8 @@ export default function App() {
     const done = (checkInsByDate[dateKey] && checkInsByDate[dateKey][u]) || [];
     if (done.length === total) return 'success';
     if (done.length > 0) return 'partial';
+    const skipIndex = getSkipIndexInWeek(dateKey, checkInsByDate, u);
+    if (skipIndex >= 0) return skipIndex <= 1 ? 'skip' : 'fail';
     return 'fail';
   };
 
@@ -335,6 +360,17 @@ export default function App() {
   };
 
   const canEditDay = (dateKey) => dateKey <= todayStr();
+
+  const streakDateKeys = useMemo(() => {
+    const set = new Set();
+    const t = todayStr();
+    for (let i = 0; i < streak; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      set.add(dateToKey(d));
+    }
+    return set;
+  }, [streak]);
 
   const selectedDayStatus = selectedDay ? getDayStatus(selectedDay) : null;
 
@@ -453,7 +489,10 @@ export default function App() {
             ))}
           </div>
           <div className="streakBox">
-            <div className="streakNumber">{streak}</div>
+            <div className="streakNumberWrap">
+              <span className="streakFlame" aria-hidden>🔥</span>
+              <span className="streakNumber">{streak}</span>
+            </div>
             <div className="streakLabel">dias de streak</div>
             <div className="streakRule">Até 2 dias sem marcar por semana não quebram a streak.</div>
           </div>
@@ -473,14 +512,16 @@ export default function App() {
                 const isOtherMonth = d.getMonth() !== calendarMonth.month;
                 const isToday = key === today;
                 const status = getDayStatus(key);
+                const inStreak = streakDateKeys.has(key);
                 return (
                   <button
                     key={i}
                     type="button"
-                    className={`calendarDay ${isOtherMonth ? 'otherMonth' : ''} ${isToday ? 'today' : ''} bubble${status.charAt(0).toUpperCase() + status.slice(1)}`}
+                    className={`calendarDay ${isOtherMonth ? 'otherMonth' : ''} ${isToday ? 'today' : ''} bubble${status.charAt(0).toUpperCase() + status.slice(1)} ${inStreak ? 'inStreak' : ''}`}
                     onClick={() => setSelectedDay(key)}
                   >
-                    {d.getDate()}
+                    <span className="calendarDayNum">{d.getDate()}</span>
+                    {inStreak && <span className="calendarDayFlame" aria-hidden>🔥</span>}
                   </button>
                 );
               })}
