@@ -1,0 +1,306 @@
+:root {
+  --bg: #0f0f14;
+  --surface: #1a1b2e;
+  --surface2: #252740;
+  --text: #e8e8ed;
+  --text-muted: #8b8b9e;
+  --accent: #7b68ee;
+  --accent-hover: #8f7cf5;
+  --success: #4ade80;
+  --success-dim: rgba(74, 222, 128, 0.2);
+  --radius: 14px;
+  --radius-sm: 10px;
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --safe-top: env(safe-area-inset-top, 0);
+  --safe-bottom: env(safe-area-inset-bottom, 0);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 18px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
+  line-height: 1.45;
+}
+
+.app {
+  min-height: 100dvh;
+  padding: max(20px, var(--safe-top)) 20px max(32px, var(--safe-bottom));
+}
+
+.setup {
+  max-width: 420px;
+  margin: 40px auto;
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 28px;
+  box-shadow: var(--shadow);
+}
+
+.setup h1 {
+  margin: 0 0 12px;
+  font-size: 1.35rem;
+}
+
+.setup p {
+  margin: 0 0 16px;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.setup a {
+  color: var(--accent);
+}
+
+.setup code {
+  font-size: 0.85rem;
+  background: var(--surface2);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.setup pre {
+  background: var(--surface2);
+  padding: 16px;
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  margin: 12px 0 20px;
+  font-size: 0.8rem;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.header h1 {
+  margin: 0 0 4px;
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.subtitle {
+  margin: 0 0 16px;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.userTabs {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.userTab {
+  padding: 10px 24px;
+  border: 2px solid var(--surface2);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.userTab:hover {
+  background: var(--surface2);
+}
+
+.userTab.active {
+  border-color: var(--accent);
+  background: rgba(123, 104, 238, 0.15);
+  color: var(--accent);
+}
+
+.main {
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.section {
+  margin-bottom: 32px;
+}
+
+.section h2 {
+  margin: 0 0 14px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.habitsList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.habitRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 18px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  transition: transform 0.15s;
+}
+
+.habitRow:active {
+  transform: scale(0.99);
+}
+
+.habitName {
+  font-weight: 500;
+  font-size: 1rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.habitCheck {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid var(--surface2);
+  background: var(--surface2);
+  color: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, border-color 0.2s;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.habitCheck:hover {
+  border-color: var(--accent);
+  background: rgba(123, 104, 238, 0.2);
+}
+
+.habitCheck.done {
+  border-color: var(--success);
+  background: var(--success-dim);
+  color: var(--success);
+}
+
+.historyTabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.historyTab {
+  padding: 8px 16px;
+  border: none;
+  background: var(--surface2);
+  color: var(--text-muted);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.historyTab:hover {
+  color: var(--text);
+  background: var(--surface);
+}
+
+.historyTab.active {
+  background: var(--accent);
+  color: white;
+}
+
+.historyContent {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 16px;
+  min-height: 120px;
+  box-shadow: var(--shadow);
+}
+
+.historyDay {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--surface2);
+  font-size: 0.9rem;
+}
+
+.historyDay:last-child {
+  border-bottom: none;
+}
+
+.historyDay .date {
+  color: var(--text-muted);
+}
+
+.historyDay .checks {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.historyDay .checks span {
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  background: var(--success-dim);
+  color: var(--success);
+}
+
+.historyEmpty {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 24px 16px;
+}
+
+.btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.btn.primary {
+  background: var(--accent);
+  color: white;
+}
+
+.btn.primary:hover {
+  background: var(--accent-hover);
+}
+
+@media (max-width: 480px) {
+  .habitCheck {
+    width: 48px;
+    height: 48px;
+  }
+}

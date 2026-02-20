@@ -1,0 +1,24 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Env / secrets (nunca commitar chaves reais)
+.env
+.env.local
+*.env
+config.js
+
+# Logs
+*.log
+npm-debug.log*
+
+# Dependencies e build
+node_modules/
+dist/
