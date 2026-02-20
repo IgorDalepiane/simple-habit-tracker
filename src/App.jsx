@@ -100,6 +100,8 @@ export default function App() {
   const [habitToDelete, setHabitToDelete] = useState(null);
   const [streak, setStreak] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [checkingKey, setCheckingKey] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(true);
 
   const configOk = hasSupabaseConfig;
 
@@ -219,7 +221,8 @@ export default function App() {
 
   useEffect(() => {
     if (!configOk) return;
-    loadDayData();
+    setHistoryLoading(true);
+    loadDayData().finally(() => setHistoryLoading(false));
   }, [configOk, historyRange, loadDayData]);
 
   useEffect(() => {
@@ -284,25 +287,37 @@ export default function App() {
   };
 
   const toggleCheck = async (habitId, currentlyDone) => {
-    const today = todayStr();
-    if (currentlyDone) {
-      await supabase.from('check_ins').delete().eq('habit_id', habitId).eq('user_name', currentUser).eq('date', today);
-    } else {
-      await supabase.from('check_ins').insert({ habit_id: habitId, user_name: currentUser, date: today });
+    const key = `habit-${habitId}`;
+    setCheckingKey(key);
+    try {
+      const today = todayStr();
+      if (currentlyDone) {
+        await supabase.from('check_ins').delete().eq('habit_id', habitId).eq('user_name', currentUser).eq('date', today);
+      } else {
+        await supabase.from('check_ins').insert({ habit_id: habitId, user_name: currentUser, date: today });
+      }
+      await loadTodayChecks();
+      await loadDayData();
+    } finally {
+      setCheckingKey(null);
     }
-    loadTodayChecks();
-    loadDayData();
   };
 
   const toggleCheckForDate = async (habitId, dateKey, currentlyDone) => {
     if (dateKey > todayStr()) return;
-    if (currentlyDone) {
-      await supabase.from('check_ins').delete().eq('habit_id', habitId).eq('user_name', currentUser).eq('date', dateKey);
-    } else {
-      await supabase.from('check_ins').insert({ habit_id: habitId, user_name: currentUser, date: dateKey });
+    const key = `habit-${habitId}-${dateKey}`;
+    setCheckingKey(key);
+    try {
+      if (currentlyDone) {
+        await supabase.from('check_ins').delete().eq('habit_id', habitId).eq('user_name', currentUser).eq('date', dateKey);
+      } else {
+        await supabase.from('check_ins').insert({ habit_id: habitId, user_name: currentUser, date: dateKey });
+      }
+      await loadTodayChecks();
+      await loadDayData();
+    } finally {
+      setCheckingKey(null);
     }
-    loadTodayChecks();
-    loadDayData();
   };
 
   const getFirstEntryDate = useCallback((checkInsByDate, user) => {
@@ -478,8 +493,8 @@ export default function App() {
                     <button type="button" className="habitDelete" onClick={() => setHabitToDelete({ id: habit.id, name: habit.name })} aria-label="Remover hábito">×</button>
                     <span className="habitName">{habit.name}</span>
                     <div className="habitRowActions">
-                      <button type="button" className={`habitCheck ${done ? 'done' : ''}`} onClick={() => toggleCheck(habit.id, done)} aria-label={done ? 'Desmarcar' : 'Marcar'}>
-                        {done ? '✓' : ''}
+                      <button type="button" className={`habitCheck ${done ? 'done' : ''} ${checkingKey === `habit-${habit.id}` ? 'loading' : ''}`} onClick={() => toggleCheck(habit.id, done)} disabled={!!checkingKey} aria-label={done ? 'Desmarcar' : 'Marcar'}>
+                        {checkingKey === `habit-${habit.id}` ? <span className="habitCheckSpinner" aria-hidden /> : (done ? '✓' : '')}
                       </button>
                     </div>
                   </div>
@@ -509,35 +524,44 @@ export default function App() {
             <div className="streakRule">Até 2 dias sem marcar por semana não quebram a streak.</div>
           </div>
           <div className="calendarWrap">
-            <div className="calendarMonthNav">
-              <button type="button" onClick={prevMonth}>←</button>
-              <span className="calendarMonthTitle">{monthTitle}</span>
-              <button type="button" onClick={nextMonth}>→</button>
-            </div>
-            <div className="calendarWeekdays">
-              {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => <span key={i}>{d}</span>)}
-            </div>
-            <div className="calendarGrid">
-              {days.map((d, i) => {
-                if (!d) return <div key={i} />;
-                const key = dateToKey(d);
-                const isOtherMonth = d.getMonth() !== calendarMonth.month;
-                const isToday = key === today;
-                const status = getDayStatus(key);
-                const inStreak = streakDateKeys.has(key);
-                return (
-                  <button
-                    key={i}
-                    type="button"
-                    className={`calendarDay ${isOtherMonth ? 'otherMonth' : ''} ${isToday ? 'today' : ''} bubble${status.charAt(0).toUpperCase() + status.slice(1)} ${inStreak ? 'inStreak' : ''}`}
-                    onClick={() => setSelectedDay(key)}
-                  >
-                    <span className="calendarDayNum">{d.getDate()}</span>
-                    {inStreak && <span className="calendarDayFlame" aria-hidden>🔥</span>}
-                  </button>
-                );
-              })}
-            </div>
+            {historyLoading ? (
+              <div className="calendarLoading" aria-busy="true">
+                <span className="calendarLoadingSpinner" aria-hidden />
+                <span>Carregando…</span>
+              </div>
+            ) : (
+              <>
+                <div className="calendarMonthNav">
+                  <button type="button" onClick={prevMonth}>←</button>
+                  <span className="calendarMonthTitle">{monthTitle}</span>
+                  <button type="button" onClick={nextMonth}>→</button>
+                </div>
+                <div className="calendarWeekdays">
+                  {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => <span key={i}>{d}</span>)}
+                </div>
+                <div className="calendarGrid">
+                  {days.map((d, i) => {
+                    if (!d) return <div key={i} />;
+                    const key = dateToKey(d);
+                    const isOtherMonth = d.getMonth() !== calendarMonth.month;
+                    const isToday = key === today;
+                    const status = getDayStatus(key);
+                    const inStreak = streakDateKeys.has(key);
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        className={`calendarDay ${isOtherMonth ? 'otherMonth' : ''} ${isToday ? 'today' : ''} bubble${status.charAt(0).toUpperCase() + status.slice(1)} ${inStreak ? 'inStreak' : ''}`}
+                        onClick={() => setSelectedDay(key)}
+                      >
+                        <span className="calendarDayNum">{d.getDate()}</span>
+                        {inStreak && <span className="calendarDayFlame" aria-hidden>🔥</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </div>
         </section>
       </main>
@@ -583,8 +607,8 @@ export default function App() {
                                 <li key={i} className={`popupHabitRow ${line.done ? 'done' : 'notDone'}`}>
                                   <span className="popupHabitName">{line.habit}</span>
                                   {editable ? (
-                                    <button type="button" className={`habitCheck ${line.done ? 'done' : ''}`} onClick={() => toggleCheckForDate(line.habitId, selectedDay, line.done)} aria-label={line.done ? 'Desmarcar' : 'Marcar'}>
-                                      {line.done ? '✓' : ''}
+                                    <button type="button" className={`habitCheck ${line.done ? 'done' : ''} ${checkingKey === `habit-${line.habitId}-${selectedDay}` ? 'loading' : ''}`} onClick={() => toggleCheckForDate(line.habitId, selectedDay, line.done)} disabled={!!checkingKey} aria-label={line.done ? 'Desmarcar' : 'Marcar'}>
+                                      {checkingKey === `habit-${line.habitId}-${selectedDay}` ? <span className="habitCheckSpinner" aria-hidden /> : (line.done ? '✓' : '')}
                                     </button>
                                   ) : (
                                     <span className="popupHabitCheckOnly" aria-hidden>{line.done ? '✓' : '○'}</span>
@@ -607,8 +631,8 @@ export default function App() {
                     <li key={i} className={`popupHabitRow ${line.done ? 'done' : 'notDone'}`}>
                       <span className="popupHabitName">{line.habit}</span>
                       {editable ? (
-                        <button type="button" className={`habitCheck ${line.done ? 'done' : ''}`} onClick={() => toggleCheckForDate(line.habitId, selectedDay, line.done)} aria-label={line.done ? 'Desmarcar' : 'Marcar'}>
-                          {line.done ? '✓' : ''}
+                        <button type="button" className={`habitCheck ${line.done ? 'done' : ''} ${checkingKey === `habit-${line.habitId}-${selectedDay}` ? 'loading' : ''}`} onClick={() => toggleCheckForDate(line.habitId, selectedDay, line.done)} disabled={!!checkingKey} aria-label={line.done ? 'Desmarcar' : 'Marcar'}>
+                          {checkingKey === `habit-${line.habitId}-${selectedDay}` ? <span className="habitCheckSpinner" aria-hidden /> : (line.done ? '✓' : '')}
                         </button>
                       ) : (
                         <span className="popupHabitCheckOnly" aria-hidden>{line.done ? '✓' : '○'}</span>

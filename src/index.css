@@ -285,6 +285,24 @@ body {
   color: var(--success);
 }
 
+.habitCheck.loading {
+  cursor: wait;
+  color: transparent;
+}
+
+.habitCheckSpinner {
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--surface2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: habitCheckSpin 0.7s linear infinite;
+}
+
+@keyframes habitCheckSpin {
+  to { transform: rotate(360deg); }
+}
+
 .habitDelete {
   flex-shrink: 0;
   width: 36px;
@@ -460,6 +478,26 @@ body {
   border-radius: var(--radius);
   padding: 16px;
   box-shadow: var(--shadow);
+}
+
+.calendarLoading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 200px;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.calendarLoadingSpinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--surface2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: habitCheckSpin 0.7s linear infinite;
 }
 
 .calendarMonthNav {
