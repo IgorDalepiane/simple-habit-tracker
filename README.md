@@ -1,10 +1,13 @@
 # Simple Habit Tracker
 
-Mini app web para marcar hábitos diários (até 2) e ver histórico. Pensado para duas pessoas (você e um amigo) usarem pelo mesmo link no celular.
+App de hábitos para duas pessoas (Igor e Vinicius): login com senha, cadastro de hábitos por usuário, check diário e histórico em calendário com streak.
 
-- **Check diário**: escolher "Eu" ou "Amigo", marcar se fez cada hábito hoje.
-- **Histórico**: ver seus checks, do amigo ou de todos.
-- Funciona no Safari no iPhone; dá para adicionar à tela inicial como "app".
+- **Login**: dois usuários (Igor / Vinicius); senha criada na primeira vez e usada nas próximas (encriptada no banco com bcrypt).
+- **Hábitos**: cada usuário cadastra e remove os próprios hábitos.
+- **Hoje**: marcar/desmarcar o que fez hoje.
+- **Histórico**: calendário com bolhas coloridas (verde = tudo feito, laranja = parcial, vermelho = nada); clique no dia para ver detalhes em popup; filtro Igor / Vinicius / Todos.
+- **Streak**: contagem de dias em sequência permitindo até 2 “skips” (dias sem marcar) por semana.
+- Tema branco e laranja; no celular pode adicionar à tela inicial.
 
 **Stack:** React + Vite + Supabase (conexão via `@supabase/supabase-js` no browser; não usa connection string direta do Postgres).
 
@@ -33,23 +36,31 @@ git init
 ### 2. Supabase
 
 1. Crie um projeto em [supabase.com](https://supabase.com) (gratuito).
-2. **SQL Editor** → New query → cole o conteúdo de `supabase/migrations/001_initial.sql` → Run.
+2. Rode as migrations no banco de **prod** (escolha uma das opções abaixo).
 3. **Settings → API**: anote **Project URL** e **Publishable API Key** (ou anon key).
 
-### 3. Configurar o app
+#### Rodar migrations no banco de prod
 
-Copie o exemplo e preencha com sua URL e chave:
+**Opção A – Pelo painel (mais simples)**  
+No Supabase: **SQL Editor** → New query. Copie o conteúdo de `supabase/migrations/001_initial.sql`, cole no editor e clique em **Run**. Depois faça o mesmo com `002_users_and_habits_per_user.sql` (sempre nessa ordem).
+
+**Opção B – Pela CLI**  
+Na pasta do projeto, vincule o projeto remoto (uma vez; vai pedir a senha do banco) e envie as migrations:
+
+```bash
+npx supabase link --project-ref SEU_PROJETO_REF
+npm run db:push
+```
+
+O `SEU_PROJETO_REF` é o ID do projeto na URL do painel (ex.: `https://supabase.com/dashboard/project/xxxxx` → o `xxxxx`).
+
+### 3. Configurar o app
 
 ```bash
 cp .env.example .env
 ```
 
-Edite `.env`:
-
-```
-VITE_SUPABASE_URL=https://SEU_PROJETO.supabase.co
-VITE_SUPABASE_ANON_KEY=sua-chave-publishable
-```
+Edite o `.env` com a **Project URL** e a **Publishable API Key** (Settings → API no painel Supabase).
 
 ### 4. Rodar localmente
 
