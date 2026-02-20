@@ -170,7 +170,7 @@ export default function App() {
 
   useEffect(() => {
     if (!configOk || !loginSelectedUser) return;
-    checkHasPassword(loginSelectedUser).then(setNeedsPassword);
+    checkHasPassword(loginSelectedUser).then((hasPassword) => setNeedsPassword(!hasPassword));
   }, [configOk, loginSelectedUser, checkHasPassword]);
 
   useEffect(() => {
