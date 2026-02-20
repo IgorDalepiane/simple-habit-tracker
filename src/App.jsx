@@ -420,15 +420,15 @@ export default function App() {
             {loginError && <p className="loginError">{loginError}</p>}
             {needsPassword ? (
               <>
-                <label>Criar senha</label>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Senha" autoComplete="new-password" />
+                <label>Criar senha (apenas números)</label>
+                <input type="password" inputMode="numeric" pattern="[0-9]*" value={password} onChange={(e) => setPassword(e.target.value.replace(/\D/g, ''))} placeholder="Senha numérica" autoComplete="new-password" />
                 <label>Confirmar senha</label>
-                <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Repita a senha" autoComplete="new-password" />
+                <input type="password" inputMode="numeric" pattern="[0-9]*" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value.replace(/\D/g, ''))} placeholder="Repita a senha" autoComplete="new-password" />
               </>
             ) : (
               <>
-                <label>Senha</label>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Senha" autoComplete="current-password" />
+                <label>Senha (apenas números)</label>
+                <input type="password" inputMode="numeric" pattern="[0-9]*" value={password} onChange={(e) => setPassword(e.target.value.replace(/\D/g, ''))} placeholder="Senha numérica" autoComplete="current-password" />
               </>
             )}
             <button type="submit" className="btn primary" disabled={loginLoading}>
@@ -475,12 +475,12 @@ export default function App() {
                 const done = !!todayChecks[habit.id];
                 return (
                   <div key={habit.id} className="habitRow">
+                    <button type="button" className="habitDelete" onClick={() => setHabitToDelete({ id: habit.id, name: habit.name })} aria-label="Remover hábito">×</button>
                     <span className="habitName">{habit.name}</span>
                     <div className="habitRowActions">
                       <button type="button" className={`habitCheck ${done ? 'done' : ''}`} onClick={() => toggleCheck(habit.id, done)} aria-label={done ? 'Desmarcar' : 'Marcar'}>
                         {done ? '✓' : ''}
                       </button>
-                      <button type="button" className="habitDelete" onClick={() => setHabitToDelete({ id: habit.id, name: habit.name })} aria-label="Remover hábito">×</button>
                     </div>
                   </div>
                 );
@@ -580,13 +580,14 @@ export default function App() {
                             {userLines.map((line, i) => {
                               const editable = line.user === currentUser && canEditDay(selectedDay);
                               return (
-                                <li key={i} className={line.done ? 'done' : 'notDone'}>
+                                <li key={i} className={`popupHabitRow ${line.done ? 'done' : 'notDone'}`}>
+                                  <span className="popupHabitName">{line.habit}</span>
                                   {editable ? (
-                                    <button type="button" className="popupHabitBtn" onClick={() => toggleCheckForDate(line.habitId, selectedDay, line.done)}>
-                                      {line.done ? '✓' : '○'} {line.habit}
+                                    <button type="button" className={`habitCheck ${line.done ? 'done' : ''}`} onClick={() => toggleCheckForDate(line.habitId, selectedDay, line.done)} aria-label={line.done ? 'Desmarcar' : 'Marcar'}>
+                                      {line.done ? '✓' : ''}
                                     </button>
                                   ) : (
-                                    <span>{line.done ? '✓' : '○'} {line.habit}</span>
+                                    <span className="popupHabitCheckOnly" aria-hidden>{line.done ? '✓' : '○'}</span>
                                   )}
                                 </li>
                               );
@@ -603,13 +604,14 @@ export default function App() {
                 {getPopupContent(selectedDay).map((line, i) => {
                   const editable = line.user === currentUser && canEditDay(selectedDay);
                   return (
-                    <li key={i} className={line.done ? 'done' : 'notDone'}>
+                    <li key={i} className={`popupHabitRow ${line.done ? 'done' : 'notDone'}`}>
+                      <span className="popupHabitName">{line.habit}</span>
                       {editable ? (
-                        <button type="button" className="popupHabitBtn" onClick={() => toggleCheckForDate(line.habitId, selectedDay, line.done)}>
-                          {line.done ? '✓' : '○'} {line.habit}
+                        <button type="button" className={`habitCheck ${line.done ? 'done' : ''}`} onClick={() => toggleCheckForDate(line.habitId, selectedDay, line.done)} aria-label={line.done ? 'Desmarcar' : 'Marcar'}>
+                          {line.done ? '✓' : ''}
                         </button>
                       ) : (
-                        <span>{line.done ? '✓' : '○'} {line.habit}</span>
+                        <span className="popupHabitCheckOnly" aria-hidden>{line.done ? '✓' : '○'}</span>
                       )}
                     </li>
                   );
