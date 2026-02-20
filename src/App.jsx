@@ -58,13 +58,14 @@ export default function App() {
   const [habits, setHabits] = useState([]);
   const [newHabitName, setNewHabitName] = useState('');
   const [todayChecks, setTodayChecks] = useState({});
-  const [historyRange, setHistoryRange] = useState('Igor');
+  const [historyRange, setHistoryRange] = useState('Igor'); // será ajustado para currentUser ao logar
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const d = new Date();
     return { year: d.getFullYear(), month: d.getMonth() };
   });
   const [dayData, setDayData] = useState({});
   const [selectedDay, setSelectedDay] = useState(null);
+  const [habitToDelete, setHabitToDelete] = useState(null);
   const [streak, setStreak] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -126,9 +127,8 @@ export default function App() {
   }, [historyRange]);
 
   const computeStreak = useCallback((habitsByUser, checkInsByDate) => {
-    const users = historyRange === 'Todos' ? ['Igor', 'Vinicius'] : [historyRange];
-    if (users.length === 0) return 0;
-    const user = users[0];
+    const user = historyRange === 'Todos' ? currentUser : historyRange;
+    if (!user) return 0;
     const totalHabits = (habitsByUser[user] || []).length;
     if (totalHabits === 0) return 0;
 
@@ -162,7 +162,7 @@ export default function App() {
       streakCount++;
     }
     return streakCount;
-  }, [historyRange]);
+  }, [historyRange, currentUser]);
 
   useEffect(() => {
     setHasConfig(configOk);
@@ -175,6 +175,7 @@ export default function App() {
 
   useEffect(() => {
     if (!configOk || !currentUser) return;
+    setHistoryRange(currentUser);
     (async () => {
       setLoading(true);
       await loadHabits();
@@ -247,8 +248,8 @@ export default function App() {
   };
 
   const deleteHabit = async (habitId) => {
-    if (!confirm('Remover este hábito?')) return;
     await supabase.from('habits').delete().eq('id', habitId);
+    setHabitToDelete(null);
     loadHabits();
     loadTodayChecks();
   };
@@ -264,10 +265,34 @@ export default function App() {
     loadDayData();
   };
 
+  const toggleCheckForDate = async (habitId, dateKey, currentlyDone) => {
+    if (dateKey > todayStr()) return;
+    if (currentlyDone) {
+      await supabase.from('check_ins').delete().eq('habit_id', habitId).eq('user_name', currentUser).eq('date', dateKey);
+    } else {
+      await supabase.from('check_ins').insert({ habit_id: habitId, user_name: currentUser, date: dateKey });
+    }
+    loadTodayChecks();
+    loadDayData();
+  };
+
+  const getFirstEntryDate = useCallback((checkInsByDate, user) => {
+    const dates = Object.keys(checkInsByDate).filter(
+      (d) => checkInsByDate[d][user] && checkInsByDate[d][user].length > 0
+    );
+    return dates.length === 0 ? null : dates.sort()[0];
+  }, []);
+
   const getDayStatus = (dateKey) => {
     const { habitsByUser, checkInsByDate } = dayData;
+    const today = todayStr();
+    if (dateKey > today) return 'future';
+
     const users = historyRange === 'Todos' ? ['Igor', 'Vinicius'] : [historyRange];
     if (historyRange === 'Todos') {
+      const firstEntries = users.map((u) => getFirstEntryDate(checkInsByDate, u)).filter(Boolean);
+      const earliest = firstEntries.length ? firstEntries.sort()[0] : null;
+      if (earliest && dateKey < earliest) return 'skip';
       let allSuccess = true;
       let anySuccess = false;
       for (const u of users) {
@@ -287,6 +312,8 @@ export default function App() {
     const habs = habitsByUser[u] || [];
     const total = habs.length;
     if (total === 0) return 'skip';
+    const firstEntry = getFirstEntryDate(checkInsByDate, u);
+    if (firstEntry && dateKey < firstEntry) return 'skip';
     const done = (checkInsByDate[dateKey] && checkInsByDate[dateKey][u]) || [];
     if (done.length === total) return 'success';
     if (done.length > 0) return 'partial';
@@ -301,11 +328,13 @@ export default function App() {
       const habs = habitsByUser[u] || [];
       const doneIds = (checkInsByDate[dateKey] && checkInsByDate[dateKey][u]) || [];
       habs.forEach((h) => {
-        lines.push({ user: u, habit: h.name, done: doneIds.includes(h.id) });
+        lines.push({ user: u, habitId: h.id, habit: h.name, done: doneIds.includes(h.id) });
       });
     }
     return lines;
   };
+
+  const canEditDay = (dateKey) => dateKey <= todayStr();
 
   const selectedDayStatus = selectedDay ? getDayStatus(selectedDay) : null;
 
@@ -399,10 +428,12 @@ export default function App() {
                 return (
                   <div key={habit.id} className="habitRow">
                     <span className="habitName">{habit.name}</span>
-                    <button type="button" className={`habitCheck ${done ? 'done' : ''}`} onClick={() => toggleCheck(habit.id, done)} aria-label={done ? 'Desmarcar' : 'Marcar'}>
-                      {done ? '✓' : ''}
-                    </button>
-                    <button type="button" className="habitDelete" onClick={() => deleteHabit(habit.id)} aria-label="Remover">×</button>
+                    <div className="habitRowActions">
+                      <button type="button" className={`habitCheck ${done ? 'done' : ''}`} onClick={() => toggleCheck(habit.id, done)} aria-label={done ? 'Desmarcar' : 'Marcar'}>
+                        {done ? '✓' : ''}
+                      </button>
+                      <button type="button" className="habitDelete" onClick={() => setHabitToDelete({ id: habit.id, name: habit.name })} aria-label="Remover hábito">×</button>
+                    </div>
                   </div>
                 );
               })}
@@ -458,18 +489,80 @@ export default function App() {
         </section>
       </main>
 
+      {habitToDelete && (
+        <div className="modalBackdrop" onClick={() => setHabitToDelete(null)}>
+          <div className="modalCard" onClick={(e) => e.stopPropagation()}>
+            <h3 className="modalTitle">Remover hábito?</h3>
+            <p className="modalText">“{habitToDelete.name}” será excluído e os check-ins desse hábito serão perdidos.</p>
+            <div className="modalActions">
+              <button type="button" className="btn modalBtnCancel" onClick={() => setHabitToDelete(null)}>Cancelar</button>
+              <button type="button" className="btn primary modalBtnConfirm" onClick={() => deleteHabit(habitToDelete.id)}>Excluir</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {selectedDay && (
         <div className="popupBackdrop" onClick={() => setSelectedDay(null)}>
           <div className={`popupCard ${selectedDayStatus}`} onClick={(e) => e.stopPropagation()}>
             <button type="button" className="popupClose" onClick={() => setSelectedDay(null)} aria-label="Fechar">×</button>
             <h3 className="popupTitle">{formatDate(selectedDay)}</h3>
-            <ul className="popupHabits">
-              {getPopupContent(selectedDay).map((line, i) => (
-                <li key={i} className={line.done ? 'done' : 'notDone'}>
-                  {line.done ? '✓' : '○'} {historyRange === 'Todos' ? `${line.user}: ` : ''}{line.habit}
-                </li>
-              ))}
-            </ul>
+            {historyRange === 'Todos' ? (
+              (() => {
+                const lines = getPopupContent(selectedDay);
+                const byUser = {};
+                lines.forEach((line) => {
+                  if (!byUser[line.user]) byUser[line.user] = [];
+                  byUser[line.user].push(line);
+                });
+                return (
+                  <div className="popupSections">
+                    {['Igor', 'Vinicius'].map((user) => {
+                      const userLines = byUser[user] || [];
+                      if (userLines.length === 0) return null;
+                      return (
+                        <div key={user} className="popupUserSection">
+                          <h4 className="popupUserHeader">{user}</h4>
+                          <ul className="popupHabits">
+                            {userLines.map((line, i) => {
+                              const editable = line.user === currentUser && canEditDay(selectedDay);
+                              return (
+                                <li key={i} className={line.done ? 'done' : 'notDone'}>
+                                  {editable ? (
+                                    <button type="button" className="popupHabitBtn" onClick={() => toggleCheckForDate(line.habitId, selectedDay, line.done)}>
+                                      {line.done ? '✓' : '○'} {line.habit}
+                                    </button>
+                                  ) : (
+                                    <span>{line.done ? '✓' : '○'} {line.habit}</span>
+                                  )}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()
+            ) : (
+              <ul className="popupHabits">
+                {getPopupContent(selectedDay).map((line, i) => {
+                  const editable = line.user === currentUser && canEditDay(selectedDay);
+                  return (
+                    <li key={i} className={line.done ? 'done' : 'notDone'}>
+                      {editable ? (
+                        <button type="button" className="popupHabitBtn" onClick={() => toggleCheckForDate(line.habitId, selectedDay, line.done)}>
+                          {line.done ? '✓' : '○'} {line.habit}
+                        </button>
+                      ) : (
+                        <span>{line.done ? '✓' : '○'} {line.habit}</span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
         </div>
       )}

@@ -250,6 +250,13 @@ body {
   min-width: 0;
 }
 
+.habitRowActions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-shrink: 0;
+}
+
 .habitCheck {
   flex-shrink: 0;
   width: 44px;
@@ -295,6 +302,61 @@ body {
 .habitDelete:hover {
   background: var(--fail-dim);
   color: var(--fail);
+}
+
+/* ---------- Modal confirmar exclusão (mobile-first) ---------- */
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modalCard {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 24px;
+  max-width: 340px;
+  width: 100%;
+  box-shadow: var(--shadow-popup);
+}
+
+.modalTitle {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0 0 12px;
+  color: var(--text);
+}
+
+.modalText {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  margin: 0 0 20px;
+  line-height: 1.45;
+}
+
+.modalActions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.modalBtnCancel {
+  background: var(--surface2);
+  color: var(--text);
+}
+
+.modalBtnCancel:hover {
+  background: var(--text-muted);
+  color: var(--surface);
+}
+
+.modalBtnConfirm {
+  min-width: 100px;
 }
 
 .addHabitRow {
@@ -451,6 +513,7 @@ body {
 .calendarDay.bubblePartial { background: rgba(244, 140, 6, 0.2); color: var(--orange-mid); }
 .calendarDay.bubbleFail { background: var(--fail-dim); color: var(--fail); }
 .calendarDay.bubbleSkip { background: #eee; color: var(--text-muted); }
+.calendarDay.bubbleFuture { background: var(--surface2); color: var(--text-muted); }
 
 /* ---------- Day popup ---------- */
 .popupBackdrop {
@@ -521,6 +584,29 @@ body {
 
 .popupHabits .done { color: var(--success); }
 .popupHabits .notDone { color: var(--text-muted); }
+
+.popupSections { margin-top: 4px; }
+.popupUserSection { margin-bottom: 16px; }
+.popupUserSection:last-child { margin-bottom: 0; }
+.popupUserHeader {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--surface2);
+}
+.popupUserSection:not(:first-child) .popupUserHeader { margin-top: 12px; }
+.popupHabitBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
 
 /* ---------- Buttons ---------- */
 .btn {
