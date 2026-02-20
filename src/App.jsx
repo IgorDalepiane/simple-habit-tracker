@@ -143,7 +143,7 @@ export default function App() {
     setDayData({ habitsByUser, checkInsByDate });
   }, [historyRange]);
 
-  const computeStreak = useCallback((habitsByUser, checkInsByDate) => {
+  const computeStreak = useCallback((habitsByUser, checkInsByDate, todayChecksOverride) => {
     const user = historyRange === 'Todos' ? currentUser : historyRange;
     if (!user) return 0;
     const totalHabits = (habitsByUser[user] || []).length;
@@ -155,6 +155,10 @@ export default function App() {
       const d = new Date();
       d.setDate(d.getDate() - i);
       const key = dateToKey(d);
+      if (key === today && user === currentUser && todayChecksOverride && Object.keys(todayChecksOverride).length > 0) {
+        skipByDate[key] = false;
+        continue;
+      }
       const checks = (checkInsByDate[key] && checkInsByDate[key][user]) || [];
       skipByDate[key] = checks.length === 0;
     }
@@ -213,8 +217,8 @@ export default function App() {
   useEffect(() => {
     if (Object.keys(dayData).length === 0) return;
     const { habitsByUser, checkInsByDate } = dayData;
-    setStreak(computeStreak(habitsByUser, checkInsByDate));
-  }, [dayData, computeStreak]);
+    setStreak(computeStreak(habitsByUser, checkInsByDate, todayChecks));
+  }, [dayData, todayChecks, computeStreak]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -309,7 +313,7 @@ export default function App() {
     if (historyRange === 'Todos') {
       const firstEntries = users.map((u) => getFirstEntryDate(checkInsByDate, u)).filter(Boolean);
       const earliest = firstEntries.length ? firstEntries.sort()[0] : null;
-      if (earliest && dateKey < earliest) return 'skip';
+      if (earliest && dateKey < earliest) return 'beforeFirst';
       let allSuccess = true;
       let anySuccess = false;
       for (const u of users) {
@@ -320,7 +324,7 @@ export default function App() {
         if (done.length === total) anySuccess = true;
         else allSuccess = false;
       }
-      if (users.every((u) => (habitsByUser[u] || []).length === 0)) return 'skip';
+      if (users.every((u) => (habitsByUser[u] || []).length === 0)) return 'beforeFirst';
       if (allSuccess && anySuccess) return 'success';
       if (anySuccess) return 'partial';
       let anyBreakSkip = false;
@@ -334,9 +338,9 @@ export default function App() {
     const u = users[0];
     const habs = habitsByUser[u] || [];
     const total = habs.length;
-    if (total === 0) return 'skip';
+    if (total === 0) return 'beforeFirst';
     const firstEntry = getFirstEntryDate(checkInsByDate, u);
-    if (firstEntry && dateKey < firstEntry) return 'skip';
+    if (firstEntry && dateKey < firstEntry) return 'beforeFirst';
     const done = (checkInsByDate[dateKey] && checkInsByDate[dateKey][u]) || [];
     if (done.length === total) return 'success';
     if (done.length > 0) return 'partial';
