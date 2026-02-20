@@ -42,6 +42,21 @@ function getSkipIndexInWeek(dateKey, checkInsByDate, user) {
   return idx;
 }
 
+function getSkipIndexFromMap(dateKey, skipByDate) {
+  const d = new Date(dateKey + 'T12:00:00');
+  const start = new Date(d);
+  start.setDate(d.getDate() - d.getDay());
+  const skipDates = [];
+  for (let i = 0; i < 7; i++) {
+    const day = new Date(start);
+    day.setDate(start.getDate() + i);
+    const key = dateToKey(day);
+    if (skipByDate[key]) skipDates.push(key);
+  }
+  skipDates.sort();
+  return skipDates.indexOf(dateKey);
+}
+
 function formatDate(iso) {
   const d = new Date(iso + 'T12:00:00');
   const today = todayStr();
@@ -163,23 +178,16 @@ export default function App() {
       skipByDate[key] = checks.length === 0;
     }
 
-    const weekSkipCount = {};
-    for (let i = 0; i < 400; i++) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const key = dateToKey(d);
-      const wk = getWeekKey(key);
-      if (!weekSkipCount[wk]) weekSkipCount[wk] = 0;
-      if (skipByDate[key]) weekSkipCount[wk]++;
-    }
-
     let streakCount = 0;
     for (let i = 0; i < 400; i++) {
       const d = new Date();
       d.setDate(d.getDate() - i);
       const key = dateToKey(d);
-      const wk = getWeekKey(key);
-      if (weekSkipCount[wk] > 2) break;
+      const isSkip = skipByDate[key];
+      if (isSkip) {
+        const skipIndex = getSkipIndexFromMap(key, skipByDate);
+        if (skipIndex >= 2) break;
+      }
       streakCount++;
     }
     return streakCount;
