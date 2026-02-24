@@ -70,6 +70,65 @@ npm run dev
 
 Acesse o endereço que o Vite mostrar (ex.: `http://localhost:5173`).
 
+### 4b. Rodar com banco de dados local (Supabase local)
+
+Para desenvolver sem usar o Supabase na nuvem, use o Supabase local (Docker). Tudo roda na sua máquina.
+
+1. **Instale o Docker** (obrigatório para o Supabase local).
+
+2. **Suba o Supabase local** (Postgres, API, Studio, etc.):
+
+   ```bash
+   npm run supabase:start
+   ```
+
+   Na primeira vez pode demorar (baixa imagens). Ao terminar, a CLI mostra o **API URL** e a **anon key**.
+
+   **Nota (Windows):** O script já exclui os serviços `vector` e `logflare` (logs internos), que costumam falhar no Docker no Windows com erro "Network unreachable". O app de hábitos não precisa deles. Se quiser subir tudo, use `npx supabase start` sem o script.
+
+3. **Pegue a URL e a chave** (se não tiver anotado):
+
+   ```bash
+   npx supabase status
+   ```
+
+   Use **API URL** e **anon key** no `.env`.
+
+4. **Configure o `.env` para o ambiente local**:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   Edite o `.env` com os valores locais, por exemplo:
+
+   ```env
+   VITE_SUPABASE_URL=http://127.0.0.1:54321
+   VITE_SUPABASE_ANON_KEY=<anon key que o "supabase status" mostrou>
+   ```
+
+5. **Rode as migrations no banco local**:
+
+   ```bash
+   npm run db:migrate
+   ```
+
+   (Isso faz `supabase db reset`, aplica as migrations e deixa o banco zerado. Para só aplicar migrations sem zerar: `npx supabase db push`.)
+
+6. **Inicie o app**:
+
+   ```bash
+   npm run dev
+   ```
+
+   Acesse `http://localhost:5173`. O Studio local fica em `http://127.0.0.1:54323` (ver tabelas, SQL, etc.).
+
+Para **parar** o Supabase local:
+
+```bash
+npm run supabase:stop
+```
+
 ### 5. Deploy no GitHub Pages
 
 1. Crie um repositório no GitHub e envie o código (não commite o `.env`).

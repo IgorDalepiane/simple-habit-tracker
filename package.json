@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "supabase:start": "supabase start",
+    "supabase:start": "supabase start --exclude vector,logflare",
     "supabase:stop": "supabase stop",
     "db:migrate": "supabase db reset",
     "db:push": "supabase db push"

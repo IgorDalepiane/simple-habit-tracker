@@ -25,7 +25,7 @@ function getWeekKey(dateStr) {
   return start.getTime();
 }
 
-function getSkipIndexInWeek(dateKey, checkInsByDate, user) {
+function getSkipIndexInWeek(dateKey, checkInsByDate, user, firstEntry) {
   const d = new Date(dateKey + 'T12:00:00');
   const start = new Date(d);
   start.setDate(d.getDate() - d.getDay());
@@ -35,14 +35,15 @@ function getSkipIndexInWeek(dateKey, checkInsByDate, user) {
     day.setDate(start.getDate() + i);
     const key = dateToKey(day);
     const hasChecks = checkInsByDate[key] && checkInsByDate[key][user] && checkInsByDate[key][user].length > 0;
-    if (!hasChecks) skipDates.push(key);
+    const afterStart = !firstEntry || key >= firstEntry;
+    if (!hasChecks && afterStart) skipDates.push(key);
   }
   skipDates.sort();
   const idx = skipDates.indexOf(dateKey);
   return idx;
 }
 
-function getSkipIndexFromMap(dateKey, skipByDate) {
+function getSkipIndexFromMap(dateKey, skipByDate, firstEntry) {
   const d = new Date(dateKey + 'T12:00:00');
   const start = new Date(d);
   start.setDate(d.getDate() - d.getDay());
@@ -51,7 +52,8 @@ function getSkipIndexFromMap(dateKey, skipByDate) {
     const day = new Date(start);
     day.setDate(start.getDate() + i);
     const key = dateToKey(day);
-    if (skipByDate[key]) skipDates.push(key);
+    const afterStart = !firstEntry || key >= firstEntry;
+    if (skipByDate[key] && afterStart) skipDates.push(key);
   }
   skipDates.sort();
   return skipDates.indexOf(dateKey);
@@ -99,6 +101,7 @@ export default function App() {
   const [selectedDay, setSelectedDay] = useState(null);
   const [habitToDelete, setHabitToDelete] = useState(null);
   const [streak, setStreak] = useState(0);
+  const [streakDateKeys, setStreakDateKeys] = useState(() => new Set());
   const [loading, setLoading] = useState(true);
   const [checkingKey, setCheckingKey] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(true);
@@ -135,7 +138,7 @@ export default function App() {
   }, [currentUser]);
 
   const loadDayData = useCallback(async () => {
-    const usersToLoad = historyRange === 'Todos' ? ['Igor', 'Vinicius'] : [historyRange];
+    const usersToLoad = [historyRange];
     const habitsByUser = {};
     const checkInsByDate = {};
 
@@ -161,12 +164,18 @@ export default function App() {
   }, [historyRange]);
 
   const computeStreak = useCallback((habitsByUser, checkInsByDate, todayChecksOverride) => {
-    const user = historyRange === 'Todos' ? currentUser : historyRange;
-    if (!user) return 0;
-    const totalHabits = (habitsByUser[user] || []).length;
-    if (totalHabits === 0) return 0;
-
+    const user = historyRange;
     const today = todayStr();
+    if (!user) return { count: 0, dateKeys: new Set() };
+    const totalHabits = (habitsByUser[user] || []).length;
+    if (totalHabits === 0) return { count: 0, dateKeys: new Set() };
+
+    const hasAnyCheckIn = Object.keys(checkInsByDate).some(
+      (d) => checkInsByDate[d][user] && checkInsByDate[d][user].length > 0
+    );
+    const hasTodayOverride = user === currentUser && todayChecksOverride && Object.keys(todayChecksOverride).length > 0;
+    if (!hasAnyCheckIn && !hasTodayOverride) return { count: 0, dateKeys: new Set() };
+
     const skipByDate = {};
     for (let i = 0; i < 400; i++) {
       const d = new Date();
@@ -181,20 +190,37 @@ export default function App() {
       skipByDate[key] = checks.length < totalHabits;
     }
 
-    let streakCount = 0;
-    for (let i = 0; i < 400; i++) {
+    const firstEntry = Object.keys(checkInsByDate).filter(
+      (d) => checkInsByDate[d][user] && checkInsByDate[d][user].length > 0
+    ).sort()[0] || null;
+
+    const maxDays = firstEntry ? 400 : 1;
+    let firstFailI = maxDays;
+    for (let i = 0; i < maxDays; i++) {
       const d = new Date();
       d.setDate(d.getDate() - i);
       const key = dateToKey(d);
+      if (firstEntry && key < firstEntry) {
+        firstFailI = i;
+        break;
+      }
       const isSkip = skipByDate[key];
       if (isSkip) {
-        const skipIndex = getSkipIndexFromMap(key, skipByDate);
-        if (skipIndex >= 2) break;
-        continue;
+        const skipIndex = getSkipIndexFromMap(key, skipByDate, firstEntry);
+        if (skipIndex >= 2) {
+          firstFailI = i;
+          break;
+        }
       }
-      streakCount++;
     }
-    return streakCount;
+
+    const dateKeys = new Set();
+    for (let i = 0; i < firstFailI; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      dateKeys.add(dateToKey(d));
+    }
+    return { count: firstFailI, dateKeys };
   }, [historyRange, currentUser]);
 
   useEffect(() => {
@@ -230,7 +256,9 @@ export default function App() {
   useEffect(() => {
     if (Object.keys(dayData).length === 0) return;
     const { habitsByUser, checkInsByDate } = dayData;
-    setStreak(computeStreak(habitsByUser, checkInsByDate, todayChecks));
+    const { count, dateKeys } = computeStreak(habitsByUser, checkInsByDate, todayChecks);
+    setStreak(count);
+    setStreakDateKeys(dateKeys);
   }, [dayData, todayChecks, computeStreak]);
 
   const handleLogin = async (e) => {
@@ -278,7 +306,8 @@ export default function App() {
     const sortOrder = habits.length;
     await supabase.from('habits').insert({ user_name: currentUser, name, sort_order: sortOrder });
     setNewHabitName('');
-    loadHabits();
+    await loadHabits();
+    await loadDayData();
   };
 
   const deleteHabit = async (habitId) => {
@@ -334,77 +363,43 @@ export default function App() {
     return dates.length === 0 ? null : dates.sort()[0];
   }, []);
 
+  const getFirstCompletedDate = useCallback((checkInsByDate, user, totalHabits) => {
+    if (totalHabits === 0) return null;
+    const dates = Object.keys(checkInsByDate).filter(
+      (d) => checkInsByDate[d][user] && checkInsByDate[d][user].length === totalHabits
+    );
+    return dates.length === 0 ? null : dates.sort()[0];
+  }, []);
+
   const getDayStatus = (dateKey) => {
     const { habitsByUser, checkInsByDate } = dayData;
     const today = todayStr();
     if (dateKey > today) return 'future';
 
-    const users = historyRange === 'Todos' ? ['Igor', 'Vinicius'] : [historyRange];
-    if (historyRange === 'Todos') {
-      const firstEntries = users.map((u) => getFirstEntryDate(checkInsByDate, u)).filter(Boolean);
-      const earliest = firstEntries.length ? firstEntries.sort()[0] : null;
-      if (earliest && dateKey < earliest) return 'beforeFirst';
-      let allSuccess = true;
-      let anySuccess = false;
-      for (const u of users) {
-        const habs = habitsByUser[u] || [];
-        const total = habs.length;
-        if (total === 0) continue;
-        const done = (checkInsByDate[dateKey] && checkInsByDate[dateKey][u]) || [];
-        if (done.length === total) anySuccess = true;
-        else allSuccess = false;
-      }
-      if (users.every((u) => (habitsByUser[u] || []).length === 0)) return 'beforeFirst';
-      if (allSuccess && anySuccess) return 'success';
-      if (anySuccess) return 'partial';
-      let anyBreakSkip = false;
-      for (const u of users) {
-        if ((habitsByUser[u] || []).length === 0) continue;
-        const idx = getSkipIndexInWeek(dateKey, checkInsByDate, u);
-        if (idx >= 2) anyBreakSkip = true;
-      }
-      return anyBreakSkip ? 'fail' : 'skip';
-    }
-    const u = users[0];
+    const u = historyRange;
     const habs = habitsByUser[u] || [];
     const total = habs.length;
     if (total === 0) return 'beforeFirst';
     const firstEntry = getFirstEntryDate(checkInsByDate, u);
-    if (firstEntry && dateKey < firstEntry) return 'beforeFirst';
+    if (!firstEntry) return 'beforeFirst';
+    if (dateKey < firstEntry) return 'beforeFirst';
     const done = (checkInsByDate[dateKey] && checkInsByDate[dateKey][u]) || [];
     if (done.length === total) return 'success';
     if (done.length > 0) return 'partial';
-    const skipIndex = getSkipIndexInWeek(dateKey, checkInsByDate, u);
+    const skipIndex = getSkipIndexInWeek(dateKey, checkInsByDate, u, firstEntry);
     if (skipIndex >= 0) return skipIndex <= 1 ? 'skip' : 'fail';
     return 'fail';
   };
 
   const getPopupContent = (dateKey) => {
     const { habitsByUser, checkInsByDate } = dayData;
-    const users = historyRange === 'Todos' ? ['Igor', 'Vinicius'] : [historyRange];
-    const lines = [];
-    for (const u of users) {
-      const habs = habitsByUser[u] || [];
-      const doneIds = (checkInsByDate[dateKey] && checkInsByDate[dateKey][u]) || [];
-      habs.forEach((h) => {
-        lines.push({ user: u, habitId: h.id, habit: h.name, done: doneIds.includes(h.id) });
-      });
-    }
-    return lines;
+    const u = historyRange;
+    const habs = habitsByUser[u] || [];
+    const doneIds = (checkInsByDate[dateKey] && checkInsByDate[dateKey][u]) || [];
+    return habs.map((h) => ({ user: u, habitId: h.id, habit: h.name, done: doneIds.includes(h.id) }));
   };
 
   const canEditDay = (dateKey) => dateKey <= todayStr();
-
-  const streakDateKeys = useMemo(() => {
-    const set = new Set();
-    const t = todayStr();
-    for (let i = 0; i < streak; i++) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      set.add(dateToKey(d));
-    }
-    return set;
-  }, [streak]);
 
   const selectedDayStatus = selectedDay ? getDayStatus(selectedDay) : null;
 
@@ -518,7 +513,7 @@ export default function App() {
         <section className="section">
           <h2 className="sectionTitle">Histórico</h2>
           <div className="historyTabs">
-            {['Igor', 'Vinicius', 'Todos'].map((r) => (
+            {['Igor', 'Vinicius'].map((r) => (
               <button key={r} type="button" className={`historyTab ${historyRange === r ? 'active' : ''}`} onClick={() => setHistoryRange(r)}>{r}</button>
             ))}
           </div>
@@ -591,64 +586,23 @@ export default function App() {
           <div className={`popupCard ${selectedDayStatus}`} onClick={(e) => e.stopPropagation()}>
             <button type="button" className="popupClose" onClick={() => setSelectedDay(null)} aria-label="Fechar">×</button>
             <h3 className="popupTitle">{formatDate(selectedDay)}</h3>
-            {historyRange === 'Todos' ? (
-              (() => {
-                const lines = getPopupContent(selectedDay);
-                const byUser = {};
-                lines.forEach((line) => {
-                  if (!byUser[line.user]) byUser[line.user] = [];
-                  byUser[line.user].push(line);
-                });
+            <ul className="popupHabits">
+              {getPopupContent(selectedDay).map((line, i) => {
+                const editable = line.user === currentUser && canEditDay(selectedDay);
                 return (
-                  <div className="popupSections">
-                    {['Igor', 'Vinicius'].map((user) => {
-                      const userLines = byUser[user] || [];
-                      if (userLines.length === 0) return null;
-                      return (
-                        <div key={user} className="popupUserSection">
-                          <h4 className="popupUserHeader">{user}</h4>
-                          <ul className="popupHabits">
-                            {userLines.map((line, i) => {
-                              const editable = line.user === currentUser && canEditDay(selectedDay);
-                              return (
-                                <li key={i} className={`popupHabitRow ${line.done ? 'done' : 'notDone'}`}>
-                                  <span className="popupHabitName">{line.habit}</span>
-                                  {editable ? (
-                                    <button type="button" className={`habitCheck ${line.done ? 'done' : ''} ${checkingKey === `habit-${line.habitId}-${selectedDay}` ? 'loading' : ''}`} onClick={() => toggleCheckForDate(line.habitId, selectedDay, line.done)} disabled={!!checkingKey} aria-label={line.done ? 'Desmarcar' : 'Marcar'}>
-                                      {checkingKey === `habit-${line.habitId}-${selectedDay}` ? <span className="habitCheckSpinner" aria-hidden /> : (line.done ? '✓' : '')}
-                                    </button>
-                                  ) : (
-                                    <span className="popupHabitCheckOnly" aria-hidden>{line.done ? '✓' : '○'}</span>
-                                  )}
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <li key={i} className={`popupHabitRow ${line.done ? 'done' : 'notDone'}`}>
+                    <span className="popupHabitName">{line.habit}</span>
+                    {editable ? (
+                      <button type="button" className={`habitCheck ${line.done ? 'done' : ''} ${checkingKey === `habit-${line.habitId}-${selectedDay}` ? 'loading' : ''}`} onClick={() => toggleCheckForDate(line.habitId, selectedDay, line.done)} disabled={!!checkingKey} aria-label={line.done ? 'Desmarcar' : 'Marcar'}>
+                        {checkingKey === `habit-${line.habitId}-${selectedDay}` ? <span className="habitCheckSpinner" aria-hidden /> : (line.done ? '✓' : '')}
+                      </button>
+                    ) : (
+                      <span className="popupHabitCheckOnly" aria-hidden>{line.done ? '✓' : '○'}</span>
+                    )}
+                  </li>
                 );
-              })()
-            ) : (
-              <ul className="popupHabits">
-                {getPopupContent(selectedDay).map((line, i) => {
-                  const editable = line.user === currentUser && canEditDay(selectedDay);
-                  return (
-                    <li key={i} className={`popupHabitRow ${line.done ? 'done' : 'notDone'}`}>
-                      <span className="popupHabitName">{line.habit}</span>
-                      {editable ? (
-                        <button type="button" className={`habitCheck ${line.done ? 'done' : ''} ${checkingKey === `habit-${line.habitId}-${selectedDay}` ? 'loading' : ''}`} onClick={() => toggleCheckForDate(line.habitId, selectedDay, line.done)} disabled={!!checkingKey} aria-label={line.done ? 'Desmarcar' : 'Marcar'}>
-                          {checkingKey === `habit-${line.habitId}-${selectedDay}` ? <span className="habitCheckSpinner" aria-hidden /> : (line.done ? '✓' : '')}
-                        </button>
-                      ) : (
-                        <span className="popupHabitCheckOnly" aria-hidden>{line.done ? '✓' : '○'}</span>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+              })}
+            </ul>
           </div>
         </div>
       )}

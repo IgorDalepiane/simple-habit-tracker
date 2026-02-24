@@ -9,9 +9,6 @@ port = 54321
 port = 54322
 major_version = 15
 
-[db.migrations]
-enabled = true
-
 [db.seed]
 enabled = false
 
