@@ -218,12 +218,17 @@ export default function App() {
     }
 
     const dateKeys = new Set();
+    let streakCount = 0;
     for (let i = 0; i < firstFailI; i++) {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      dateKeys.add(dateToKey(d));
+      const key = dateToKey(d);
+      if (!skipByDate[key]) {
+        streakCount++;
+        dateKeys.add(key);
+      }
     }
-    return { count: firstFailI, dateKeys };
+    return { count: streakCount, dateKeys };
   }, [historyRange, currentUser]);
 
   useEffect(() => {
