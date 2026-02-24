@@ -103,6 +103,9 @@ export default function App() {
   const [streak, setStreak] = useState(0);
   const [streakDateKeys, setStreakDateKeys] = useState(() => new Set());
   const [loading, setLoading] = useState(true);
+  const [darkMode, setDarkMode] = useState(() => {
+    try { return localStorage.getItem('habits-dark') === '1'; } catch { return false; }
+  });
   const [checkingKey, setCheckingKey] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(true);
 
@@ -228,6 +231,14 @@ export default function App() {
   }, [configOk]);
 
   useEffect(() => {
+    const theme = darkMode ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    try { localStorage.setItem('habits-dark', darkMode ? '1' : '0'); } catch (_) {}
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', darkMode ? '#1a1b2e' : '#faf9f7');
+  }, [darkMode]);
+
+  useEffect(() => {
     if (!configOk || !loginSelectedUser) return;
     checkHasPassword(loginSelectedUser).then((hasPassword) => setNeedsPassword(!hasPassword));
   }, [configOk, loginSelectedUser, checkHasPassword]);
@@ -320,6 +331,22 @@ export default function App() {
     await loadHabits();
     await loadTodayChecks();
     await loadDayData();
+  };
+
+  const exportToCsv = async () => {
+    if (!currentUser) return;
+    const { data: habs } = await supabase.from('habits').select('id, name').eq('user_name', currentUser).order('sort_order');
+    const { data: checks } = await supabase.from('check_ins').select('date, habit_id').eq('user_name', currentUser);
+    const habitMap = Object.fromEntries((habs || []).map((h) => [h.id, h.name]));
+    const escape = (s) => (s == null ? '' : String(s).includes(',') || String(s).includes('"') ? `"${String(s).replace(/"/g, '""')}"` : s);
+    const rows = (checks || []).map((c) => [c.date, escape(habitMap[c.habit_id] || c.habit_id)].join(','));
+    const csv = '\uFEFFdata,hábito\n' + rows.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `habitos-${currentUser}-${todayStr()}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
   };
 
   const toggleCheck = async (habitId, currentlyDone) => {
@@ -476,7 +503,15 @@ export default function App() {
           <h1>Hábitos</h1>
           <span className="headerUser">{currentUser}</span>
         </div>
-        <button type="button" className="logoutBtn" onClick={() => { setCurrentUser(null); setPassword(''); setConfirmPassword(''); }}>Sair</button>
+        <div className="headerActions">
+          <button type="button" className="headerIconBtn" onClick={exportToCsv} aria-label="Exportar CSV" title="Exportar dados em CSV">
+            📥
+          </button>
+          <button type="button" className="headerIconBtn" onClick={() => setDarkMode((d) => !d)} aria-label={darkMode ? 'Ativar tema claro' : 'Ativar tema escuro'} title={darkMode ? 'Tema claro' : 'Tema escuro'}>
+            {darkMode ? '☀️' : '🌙'}
+          </button>
+          <button type="button" className="logoutBtn" onClick={() => { setCurrentUser(null); setPassword(''); setConfirmPassword(''); }}>Sair</button>
+        </div>
       </header>
 
       <main className="main">

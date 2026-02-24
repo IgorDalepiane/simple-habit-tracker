@@ -22,6 +22,26 @@
   --safe-bottom: env(safe-area-inset-bottom, 0);
 }
 
+[data-theme="dark"] {
+  --bg: #1a1b2e;
+  --surface: #252638;
+  --surface2: #2e3047;
+  --text: #e8e8ed;
+  --text-muted: #9a9bb3;
+  --accent: #f48c06;
+  --accent-hover: #e85d04;
+  --accent-light: rgba(244, 140, 6, 0.2);
+  --success: #52b788;
+  --success-bg: #1b4332;
+  --success-dim: rgba(45, 106, 79, 0.35);
+  --fail: #e63946;
+  --fail-bg: #5c1a1f;
+  --fail-dim: rgba(157, 2, 8, 0.25);
+  --orange-mid: #f48c06;
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  --shadow-popup: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
 *,
 *::before,
 *::after {
@@ -54,8 +74,16 @@ body {
   background: linear-gradient(180deg, #e8f5e9 0%, var(--bg) 40%);
 }
 
+[data-theme="dark"] .app.tintSuccess {
+  background: linear-gradient(180deg, #1b4332 0%, var(--bg) 40%);
+}
+
 .app.tintFail {
   background: linear-gradient(180deg, #ffebee 0%, var(--bg) 40%);
+}
+
+[data-theme="dark"] .app.tintFail {
+  background: linear-gradient(180deg, #5c1a1f 0%, var(--bg) 40%);
 }
 
 .setup {
@@ -186,6 +214,33 @@ body {
   font-size: 0.9rem;
   color: var(--accent);
   font-weight: 600;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.headerIconBtn {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--surface2);
+  background: var(--surface);
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.headerIconBtn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .logoutBtn {
