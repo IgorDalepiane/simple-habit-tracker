@@ -172,12 +172,13 @@ export default function App() {
       const d = new Date();
       d.setDate(d.getDate() - i);
       const key = dateToKey(d);
-      if (key === today && user === currentUser && todayChecksOverride && Object.keys(todayChecksOverride).length > 0) {
-        skipByDate[key] = false;
+      if (key === today && user === currentUser && todayChecksOverride !== undefined) {
+        const todayDoneCount = Object.keys(todayChecksOverride).length;
+        skipByDate[key] = todayDoneCount < totalHabits;
         continue;
       }
       const checks = (checkInsByDate[key] && checkInsByDate[key][user]) || [];
-      skipByDate[key] = checks.length === 0;
+      skipByDate[key] = checks.length < totalHabits;
     }
 
     let streakCount = 0;
@@ -189,6 +190,7 @@ export default function App() {
       if (isSkip) {
         const skipIndex = getSkipIndexFromMap(key, skipByDate);
         if (skipIndex >= 2) break;
+        continue;
       }
       streakCount++;
     }
@@ -280,10 +282,15 @@ export default function App() {
   };
 
   const deleteHabit = async (habitId) => {
+    const wasLastHabit = habits.length === 1;
     await supabase.from('habits').delete().eq('id', habitId);
     setHabitToDelete(null);
-    loadHabits();
-    loadTodayChecks();
+    if (wasLastHabit) {
+      await supabase.from('check_ins').delete().eq('user_name', currentUser);
+    }
+    await loadHabits();
+    await loadTodayChecks();
+    await loadDayData();
   };
 
   const toggleCheck = async (habitId, currentlyDone) => {
